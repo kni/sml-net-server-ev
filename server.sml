@@ -1,8 +1,10 @@
 structure NetServer :
 sig
 
-datatype ('a, 'b, 'c, 'd) settings = Settings of {
-  handler      : ('c option * 'd option) -> ('a, 'b) Socket.sock -> unit,
+type stream = (INetSock.inet, Socket.active Socket.stream) NetServerStream.netStream
+
+datatype ('c, 'd) settings = Settings of {
+  handler      : ('c option * 'd option) -> stream -> unit,
   port         : int,
   host         : string,
   acceptQueue  : int,
@@ -18,17 +20,24 @@ val run: ('c, 'd) settings -> unit
 
 val needStop: unit -> bool
 
-val read  : ('a, Socket.active Socket.stream) Socket.sock * int    * Time.time option -> string
-val write : ('a, Socket.active Socket.stream) Socket.sock * string * Time.time option -> bool
+val read:  stream * (stream * string -> string) -> unit
+val write: stream * string -> int
+val close: stream -> unit
 
 end
 =
 struct
 
+type stream = (INetSock.inet, Socket.active Socket.stream) NetServerStream.netStream
+
+val read  = NetServerStream.read
+val write = NetServerStream.write
+val close = NetServerStream.close
+
 open NetServer
 
-datatype ('a, 'b, 'c, 'd) settings = Settings of {
-  handler      : ('c option * 'd option) -> ('a, 'b) Socket.sock -> unit,
+datatype ('c, 'd) settings = Settings of {
+  handler      : ('c option * 'd option) -> stream -> unit,
   port         : int,
   host         : string,
   acceptQueue  : int,
