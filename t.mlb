@@ -2,8 +2,11 @@ local
 	$(SML_LIB)/basis/mlton.mlb
 	$(SML_LIB)/basis/basis.mlb
 in
+	../Ev/hash-array-int.sml
+	../Ev/ev-kqueue-mlton.sml
 	os-constants.sml
 	server-mlton.sml
+	server-stream.sml
 	server.sml
 	t.sml
 	main.sml

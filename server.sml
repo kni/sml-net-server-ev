@@ -2,7 +2,7 @@ structure NetServer :
 sig
 
 datatype ('a, 'b, 'c, 'd) settings = Settings of {
-  handler      : ('c option * 'd option) -> ('a, 'b) Socket.sock -> unit,
+  handler      : ('c option * 'd option) -> ('a, 'b) NetServerStream.netStream -> unit,
   port         : int,
   host         : string,
   acceptQueue  : int,
@@ -18,17 +18,22 @@ val run: (INetSock.inet, Socket.active Socket.stream, 'c, 'd) settings -> unit
 
 val needStop: unit -> bool
 
-val read  : ('a, Socket.active Socket.stream) Socket.sock * int    * Time.time option -> string
-val write : ('a, Socket.active Socket.stream) Socket.sock * string * Time.time option -> bool
+val read:  ('a, Socket.active Socket.stream) NetServerStream.netStream * (('a, Socket.active Socket.stream) NetServerStream.netStream * string -> string) -> unit
+val write: ('a, Socket.active Socket.stream) NetServerStream.netStream * string -> int
+val close: ('a, 'b) NetServerStream.netStream -> unit
 
 end
 =
 struct
 
+val read  = NetServerStream.read
+val write = NetServerStream.write
+val close = NetServerStream.close
+
 open NetServer
 
 datatype ('a, 'b, 'c, 'd) settings = Settings of {
-  handler      : ('c option * 'd option) -> ('a, 'b) Socket.sock -> unit,
+  handler      : ('c option * 'd option) -> ('a, 'b) NetServerStream.netStream -> unit,
   port         : int,
   host         : string,
   acceptQueue  : int,
@@ -79,21 +84,40 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
 
         val connectHook = #connectHook settings
 
-        fun doAccept () = case accept listenSock of
-            NONE => if needStop () then () else doAccept ()
-          | SOME (sock, _) =>
+        val ev = Ev.evInit ()
+
+        val listenEvFD = sockToEvFD listenSock
+
+        fun acceptCb _ = case Socket.acceptNB listenSock of NONE => () (* Other worker was first *) | SOME (sock, _) =>
           let
             val connectHookData = case connectHook of NONE => NONE | SOME (init, cleanup) => SOME (init ())
+            val _ = Socket.Ctl.setKEEPALIVE (sock, true)
+
+            fun closeCb _ = (
+              case connectHook of NONE => () | SOME (init, cleanup) => cleanup (valOf connectHookData);
+              Socket.close sock
+            )
+
+            val stream = NetServerStream.stream (ev, sock, closeCb)
           in
-            Socket.Ctl.setKEEPALIVE (sock, true);
-            handler (workerHookData, connectHookData) sock handle exc => logger ("function handler raised an exception: " ^ exnMessage exc);
-            case connectHook of NONE => () | SOME (init, cleanup) => cleanup (valOf connectHookData);
-            Socket.close sock;
-            doAccept ()
+            handler (workerHookData, connectHookData) stream handle exc => logger ("function handler raised an exception: " ^ exnMessage exc);
+            ()
           end
 
+        val _ =  Ev.evModify ev [Ev.evAdd (listenEvFD, Ev.evRead, acceptCb)]
+
+        val timeout = Time.fromSeconds 3 (* ToDo *)
+
+        fun loop () =
+          let
+             val wait_cnt = Ev.evWait ev (SOME timeout)
+          in
+            if needStop () then () else loop ()
+          end
       in
-        doAccept ();
+        loop ();
+        (* ToDo Очистка: пройтить по всем stream, которые созранять в hash таблице evFD -> и вызвать close stream *)
+        Ev.evModify ev [Ev.evDelete (listenEvFD, Ev.evRead)];
         case workerHook of NONE => () | SOME (init, cleanup) => cleanup (valOf workerHookData)
       end
   in

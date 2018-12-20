@@ -5,22 +5,23 @@ fun logger msg = print ((Date.fmt "%Y-%m-%d %H:%M:%S" (Date.fromTimeUniv(Time.no
 fun main () =
   let
 
-    val timeout = Time.fromSeconds 10
-
-    fun read socket = NetServer.read (socket, 1024, (SOME timeout))
-    fun write (socket, text) = NetServer.write (socket, text, (SOME timeout))
-
-    fun handler (workerHookData, connectHookData) socket = (
-      logger "Hello, socket.";
+    fun handler (workerHookData, connectHookData) stream = (
+      logger "Hello, stream.";
       case connectHookData of NONE => () | SOME data => print data;
       let
-        val r = read socket
+        fun rCb (stream, "")   = (logger "BY, stream (client closed socket)."; "")
+          | rCb (stream, text) =
+          let
+            val _ = print text
+          in
+            NetServer.write (stream, "pong\n");
+            logger "BY, stream";
+            NetServer.close stream;
+            ""
+          end
       in
-        if r = ""
-        then (if NetServer.needStop () then false else write (socket, "timeout\n"))
-        else (print r; write (socket, "pong\n"))
-      end;
-      logger "BY, socket."
+        NetServer.read (stream, rCb)
+      end
     )
 
     val settings = NetServer.Settings {
