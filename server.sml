@@ -81,6 +81,8 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
     fun doListen maybeListenSock =
       let
         val listenSock = case maybeListenSock of ListenSocket sock => sock | GetListenSocket f => f ()
+        val listenEvFD = sockToEvFD listenSock
+
         val handler = #handler settings
 
         val workerHook = #workerHook settings
@@ -90,19 +92,23 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
 
         val ev = Ev.evInit ()
 
-        val listenEvFD = sockToEvFD listenSock
+        val streamHash = HashArrayInt.hash 1000
+
 
         fun acceptCb _ = case Socket.acceptNB listenSock of NONE => () (* Other worker was first *) | SOME (sock, _) =>
           let
+            val evFD = sockToEvFD sock
             val connectHookData = case connectHook of NONE => NONE | SOME (init, cleanup) => SOME (init ())
             val _ = Socket.Ctl.setKEEPALIVE (sock, true)
 
-            fun closeCb _ = (
+            fun closeCb () = (
               case connectHook of NONE => () | SOME (init, cleanup) => cleanup (valOf connectHookData);
+              HashArrayInt.delete (streamHash, evFD);
               Socket.close sock
             )
 
             val stream = NetServerStream.stream (ev, sock, closeCb)
+            val _ = HashArrayInt.update (streamHash, evFD, stream)
           in
             handler (workerHookData, connectHookData) stream handle exc => logger ("function handler raised an exception: " ^ exnMessage exc);
             ()
@@ -120,7 +126,7 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
           end
       in
         loop ();
-        (* ToDo Очистка: пройтить по всем stream, которые созранять в hash таблице evFD -> и вызвать close stream *)
+        HashArrayInt.fold (fn (evFD, stream, ()) => NetServerStream.close stream) () streamHash; (* clean *)
         Ev.evModify ev [Ev.evDelete (listenEvFD, Ev.evRead)];
         case workerHook of NONE => () | SOME (init, cleanup) => cleanup (valOf workerHookData)
       end
