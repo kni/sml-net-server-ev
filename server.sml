@@ -1,8 +1,10 @@
 structure NetServer :
 sig
 
-datatype ('a, 'b, 'c, 'd) settings = Settings of {
-  handler      : ('c option * 'd option) -> ('a, 'b) NetServerStream.netStream -> unit,
+type stream = (INetSock.inet, Socket.active Socket.stream) NetServerStream.netStream
+
+datatype ('c, 'd) settings = Settings of {
+  handler      : ('c option * 'd option) -> stream -> unit,
   port         : int,
   host         : string,
   acceptQueue  : int,
@@ -14,17 +16,19 @@ datatype ('a, 'b, 'c, 'd) settings = Settings of {
   logger       : string -> unit
 }
 
-val run: (INetSock.inet, Socket.active Socket.stream, 'c, 'd) settings -> unit
+val run: ('c, 'd) settings -> unit
 
 val needStop: unit -> bool
 
-val read:  ('a, Socket.active Socket.stream) NetServerStream.netStream * (('a, Socket.active Socket.stream) NetServerStream.netStream * string -> string) -> unit
-val write: ('a, Socket.active Socket.stream) NetServerStream.netStream * string -> int
-val close: ('a, 'b) NetServerStream.netStream -> unit
+val read:  stream * (stream * string -> string) -> unit
+val write: stream * string -> int
+val close: stream -> unit
 
 end
 =
 struct
+
+type stream = (INetSock.inet, Socket.active Socket.stream) NetServerStream.netStream
 
 val read  = NetServerStream.read
 val write = NetServerStream.write
@@ -32,8 +36,8 @@ val close = NetServerStream.close
 
 open NetServer
 
-datatype ('a, 'b, 'c, 'd) settings = Settings of {
-  handler      : ('c option * 'd option) -> ('a, 'b) NetServerStream.netStream -> unit,
+datatype ('c, 'd) settings = Settings of {
+  handler      : ('c option * 'd option) -> stream -> unit,
   port         : int,
   host         : string,
   acceptQueue  : int,
