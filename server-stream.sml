@@ -5,7 +5,7 @@ datatype ('af, 'sock_type) netStream = NetStream of {
   ev:       Ev.ev,
   sock:     ('af, 'sock_type) Socket.sock,
   fd:       int, (* FD of sock *)
-  rBuf:     string list ref,
+  rBuf:     string ref,
   rBufSize: int ref,
   rCb:      (('af, 'sock_type) netStream * string -> string) option ref, (* return tail and is read watch flag *)
   wBuf:     string list ref,
@@ -22,7 +22,7 @@ fun stream (ev, sock, closeCb) = NetStream {
     ev      = ev,
     sock    = sock,
     fd      = sockToEvFD sock,
-    rBuf     = ref [],
+    rBuf     = ref "",
     rBufSize = ref 0,
     rCb      = ref NONE,
     wBuf     = ref [],
@@ -90,10 +90,10 @@ fun readCb stream _ =
   let
     val data = valOf (Socket.recvVecNB (#sock stream, chunksize))
     val text = Byte.bytesToString data
-    val text = String.concat (List.rev (text :: !(#rBuf stream)))
+    val text = (!(#rBuf stream)) ^ text
     val cb   = valOf (!(#rCb stream))
     val t    = cb (NetStream stream, text)
-    val _ = (#rBuf stream)     := [t]
+    val _ = (#rBuf stream)     := t
     val _ = (#rBufSize stream) := 0
   in
     if Word8Vector.length data = 0 then close (NetStream stream) else ()
