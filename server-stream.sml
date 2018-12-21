@@ -1,8 +1,10 @@
 structure NetServerStream =
 struct
 
+open EvWithTimer
+
 datatype ('af, 'sock_type) netStream = NetStream of {
-  ev:       Ev.ev,
+  ev:       ev,
   sock:     ('af, 'sock_type) Socket.sock,
   fd:       int, (* FD of sock *)
   rBuf:     string ref,
@@ -48,7 +50,7 @@ fun writeCb stream _ =
       (#wBuf     stream) := [];
       (#wBufSize stream) := 0;
       (#wWatched stream) := false;
-      Ev.evModify (#ev stream) [Ev.evDelete (#fd stream, Ev.evWrite)];
+      evModify (#ev stream) [evDelete (#fd stream, evWrite)];
       ()
     )
     else
@@ -71,7 +73,7 @@ fun write (NetStream stream, text) =
   in
     if !(#wWatched stream) then 0 else (
       (#wWatched stream) := true;
-      Ev.evModify (#ev stream) [Ev.evAdd (#fd stream, Ev.evWrite, writeCb stream)]
+      evModify (#ev stream) [evAdd (#fd stream, evWrite, writeCb stream)]
     )
   end
 
@@ -79,7 +81,7 @@ end
 
 
 fun close (NetStream stream) = (
-     Ev.evModify (#ev stream) [Ev.evDelete (#fd stream, Ev.evWrite), Ev.evDelete (#fd stream, Ev.evRead)];
+     evModify (#ev stream) [evDelete (#fd stream, evWrite), evDelete (#fd stream, evRead)];
      (#closeCb stream) ()
   )
 
@@ -104,7 +106,7 @@ in
 fun read (NetStream stream, cb) =
   case !(#rCb stream) of
       SOME rCb =>   (#rCb stream) := SOME cb
-    | NONE     => ( (#rCb stream) := SOME cb; Ev.evModify (#ev stream) [Ev.evAdd (#fd stream, Ev.evRead, readCb stream)]; () )
+    | NONE     => ( (#rCb stream) := SOME cb; evModify (#ev stream) [evAdd (#fd stream, evRead, readCb stream)]; () )
 
 end
 

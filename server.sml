@@ -1,6 +1,8 @@
 structure NetServer :
 sig
 
+type ev
+
 type stream = (INetSock.inet, Socket.active Socket.stream) NetServerStream.netStream
 
 datatype ('c, 'd) settings = Settings of {
@@ -11,8 +13,8 @@ datatype ('c, 'd) settings = Settings of {
   workers      : int,
   maxRequests  : int,
   reuseport    : bool,
-  workerHook   : ((unit -> 'c) * ('c -> unit)) option,
-  connectHook  : ((unit -> 'd) * ('d -> unit)) option,
+  workerHook   : ((ev -> 'c) * ('c -> unit)) option,
+  connectHook  : ((ev -> 'd) * ('d -> unit)) option,
   logger       : string -> unit
 }
 
@@ -27,6 +29,8 @@ val close: stream -> unit
 end
 =
 struct
+
+type ev = EvWithTimer.ev
 
 type stream = (INetSock.inet, Socket.active Socket.stream) NetServerStream.netStream
 
@@ -44,8 +48,8 @@ datatype ('c, 'd) settings = Settings of {
   workers      : int,
   maxRequests  : int,
   reuseport    : bool,
-  workerHook   : ((unit -> 'c) * ('c -> unit)) option,
-  connectHook  : ((unit -> 'd) * ('d -> unit)) option,
+  workerHook   : ((ev -> 'c) * ('c -> unit)) option,
+  connectHook  : ((ev -> 'd) * ('d -> unit)) option,
   logger       : string -> unit
 }
 
@@ -59,6 +63,8 @@ val sockToEvFD : ('a, 'b) Socket.sock -> int = fn sock => (SysWord.toInt o Posix
 
 fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger = logger, ...}) =
   let
+
+    open EvWithTimer
 
     val addr = if host = "*" then INetSock.any port else
       case NetHostDB.fromString host of NONE => INetSock.any port | SOME h => INetSock.toAddr(h, port)
@@ -83,22 +89,22 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
         val listenSock = case maybeListenSock of ListenSocket sock => sock | GetListenSocket f => f ()
         val listenEvFD = sockToEvFD listenSock
 
+        val ev = evInit ()
+
         val handler = #handler settings
 
         val workerHook = #workerHook settings
-        val workerHookData = case workerHook of NONE => NONE | SOME (init, cleanup) => SOME (init ())
+        val workerHookData = case workerHook of NONE => NONE | SOME (init, cleanup) => SOME (init ev)
 
         val connectHook = #connectHook settings
 
-        val ev = Ev.evInit ()
 
         val streamHash = HashArrayInt.hash 1000
-
 
         fun acceptCb _ = case Socket.acceptNB listenSock of NONE => () (* Other worker was first *) | SOME (sock, _) =>
           let
             val evFD = sockToEvFD sock
-            val connectHookData = case connectHook of NONE => NONE | SOME (init, cleanup) => SOME (init ())
+            val connectHookData = case connectHook of NONE => NONE | SOME (init, cleanup) => SOME (init ev)
             val _ = Socket.Ctl.setKEEPALIVE (sock, true)
 
             fun closeCb () = (
@@ -114,20 +120,20 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
             ()
           end
 
-        val _ =  Ev.evModify ev [Ev.evAdd (listenEvFD, Ev.evRead, acceptCb)]
+        val _ =  evModify ev [evAdd (listenEvFD, evRead, acceptCb)]
 
         val timeout = Time.fromSeconds 3 (* ToDo *)
 
         fun loop () =
           let
-             val wait_cnt = Ev.evWait ev (SOME timeout)
+             val wait_cnt = evWait ev (SOME timeout)
           in
             if needStop () then () else loop ()
           end
       in
         loop ();
         HashArrayInt.fold (fn (evFD, stream, ()) => NetServerStream.close stream) () streamHash; (* clean *)
-        Ev.evModify ev [Ev.evDelete (listenEvFD, Ev.evRead)];
+        evModify ev [evDelete (listenEvFD, evRead)];
         case workerHook of NONE => () | SOME (init, cleanup) => cleanup (valOf workerHookData)
       end
   in

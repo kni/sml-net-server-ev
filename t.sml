@@ -15,8 +15,7 @@ fun main () =
             val _ = print text
           in
             NetServer.write (stream, "pong\n");
-            logger "BY, stream";
-            NetServer.close stream;
+            (* ToDo logger "BY, stream"; NetServer.close stream; *)
             ""
           end
       in
@@ -32,8 +31,8 @@ fun main () =
       workers        = 3,
       maxRequests    = 1000, (* ToDo *)
       reuseport      = false,
-      workerHook     = SOME ( (fn () => logger "Worker init hook."),  (fn _  => logger "Worker cleanup hook.") ),
-      connectHook    = SOME ( (fn () => (logger "Connect init hook."; "It's connect hook data.\n")), (fn _  => logger "Connect cleanup hook.") ),
+      workerHook     = SOME ( (fn ev => logger "Worker init hook."),  (fn _  => logger "Worker cleanup hook.") ),
+      connectHook    = SOME ( (fn ev => (logger "Connect init hook."; "It's connect hook data.\n")), (fn _  => logger "Connect cleanup hook.") ),
       logger         = logger
     }
 
