@@ -15,7 +15,8 @@ fun main () =
             val _ = print text
           in
             NetServer.write (stream, "pong\n");
-            (* ToDo logger "BY, stream"; NetServer.close stream; *)
+            logger "BY, stream";
+            NetServer.shutdown stream;
             ""
           end
       in

@@ -22,9 +22,10 @@ val run: ('c, 'd) settings -> unit
 
 val needStop: unit -> bool
 
-val read:  stream * (stream * string -> string) -> unit
-val write: stream * string -> int
-val close: stream -> unit
+val read:     stream * (stream * string -> string) -> unit
+val write:    stream * string -> int
+val shutdown: stream -> unit
+val close:    stream -> unit
 
 end
 =
@@ -34,9 +35,10 @@ type ev = EvWithTimer.ev
 
 type stream = (INetSock.inet, Socket.active Socket.stream) NetServerStream.netStream
 
-val read  = NetServerStream.read
-val write = NetServerStream.write
-val close = NetServerStream.close
+val read     = NetServerStream.read
+val write    = NetServerStream.write
+val shutdown = NetServerStream.shutdown
+val close    = NetServerStream.close
 
 open NetServer
 

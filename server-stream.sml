@@ -3,6 +3,8 @@ struct
 
 open EvWithTimer
 
+datatype stream_state = OpenState | ShutdownState | CloseState
+
 datatype ('af, 'sock_type) netStream = NetStream of {
   ev:       ev,
   sock:     ('af, 'sock_type) Socket.sock,
@@ -13,6 +15,7 @@ datatype ('af, 'sock_type) netStream = NetStream of {
   wBuf:     string list ref,
   wBufSize: int ref,
   wWatched: bool ref,
+  state:    stream_state ref,
   closeCb:  unit -> unit
 }
 
@@ -30,10 +33,26 @@ fun stream (ev, sock, closeCb) = NetStream {
     wBuf     = ref [],
     wBufSize = ref 0,
     wWatched = ref false,
+    state    = ref OpenState,
     closeCb  = closeCb
   }
 
 val chunksize = 64 * 1024 (* ToDo *)
+
+
+fun close (NetStream stream) = if !(#state stream) = CloseState then () else (
+     (#rCb stream)      := NONE;
+     (#wWatched stream) := false;
+     evModify (#ev stream) [evDelete (#fd stream, evWrite), evDelete (#fd stream, evRead)];
+     (#state stream) := CloseState;
+     (#closeCb stream) ()
+  )
+
+fun shutdown (NetStream stream) =
+  if !(#wBufSize stream) = 0
+  then close (NetStream stream)
+  else (#state stream) := ShutdownState
+
 
 local
 
@@ -51,7 +70,7 @@ fun writeCb stream _ =
       (#wBufSize stream) := 0;
       (#wWatched stream) := false;
       evModify (#ev stream) [evDelete (#fd stream, evWrite)];
-      ()
+      case !(#state stream) of ShutdownState => close (NetStream stream) | _ => ()
     )
     else
       let
@@ -65,9 +84,8 @@ fun writeCb stream _ =
 
 in
 
-fun write (NetStream stream, text) =
+fun write (NetStream stream, text) = if !(#state stream) = CloseState then 0 else
   let
-
     val _ = (#wBuf stream)     := text :: !(#wBuf stream)
     val _ = (#wBufSize stream) := (String.size text) + !(#wBufSize stream)
   in
@@ -78,12 +96,6 @@ fun write (NetStream stream, text) =
   end
 
 end
-
-
-fun close (NetStream stream) = (
-     evModify (#ev stream) [evDelete (#fd stream, evWrite), evDelete (#fd stream, evRead)];
-     (#closeCb stream) ()
-  )
 
 
 local
@@ -103,7 +115,7 @@ fun readCb stream _ =
 
 in
 
-fun read (NetStream stream, cb) =
+fun read (NetStream stream, cb) = if !(#state stream) = CloseState then () else
   case !(#rCb stream) of
       SOME rCb =>   (#rCb stream) := SOME cb
     | NONE     => ( (#rCb stream) := SOME cb; evModify (#ev stream) [evAdd (#fd stream, evRead, readCb stream)]; () )
