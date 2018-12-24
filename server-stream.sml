@@ -40,13 +40,16 @@ fun stream (ev, sock, closeCb) = NetStream {
 val chunksize = 64 * 1024 (* ToDo *)
 
 
-fun close (NetStream stream) = if !(#state stream) = CloseState then () else (
-     (#rCb stream)      := NONE;
-     (#wWatched stream) := false;
-     evModify (#ev stream) [evDelete (#fd stream, evWrite), evDelete (#fd stream, evRead)];
+fun close (NetStream stream) = if !(#state stream) = CloseState then () else
+  let
+    val m = [evDelete (#fd stream, evRead)]
+    val _ = (#rCb stream) := NONE;
+    val m = if !(#wWatched stream) then ( (#wWatched stream) := false ; evDelete (#fd stream, evWrite) :: m ) else m
+  in
+     evModify (#ev stream) m;
      (#state stream) := CloseState;
      (#closeCb stream) ()
-  )
+  end
 
 fun shutdown (NetStream stream) =
   if !(#wBufSize stream) = 0
