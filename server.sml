@@ -59,6 +59,8 @@ type listenSocket = (INetSock.inet, Socket.passive Socket.stream) Socket.sock
 datatype ListenSocket = ListenSocket of listenSocket | GetListenSocket of unit -> listenSocket
 
 
+val evTimeout = Time.fromSeconds 1
+
 val sockToEvFD : ('a, 'b) Socket.sock -> int = fn sock => (SysWord.toInt o Posix.FileSys.fdToWord o Option.valOf o Posix.FileSys.iodToFD o Socket.ioDesc) sock
 
 
@@ -123,11 +125,9 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
 
         val _ =  evModify ev [evAdd (listenEvFD, evRead, acceptCb)]
 
-        val timeout = Time.fromSeconds 3 (* ToDo *)
-
         fun loop () =
           let
-            val wait_cnt = evWait ev (SOME timeout)
+            val wait_cnt = evWait ev (SOME evTimeout)
           in
             if needStop () then () else loop ()
           end
