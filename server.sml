@@ -55,9 +55,8 @@ datatype ('c, 'd) settings = Settings of {
   logger       : string -> unit
 }
 
-
-datatype ('a, 'b) ListenSocket = ListenSocket of ('a, 'b) Socket.sock | GetListenSocket of unit -> ('a, 'b) Socket.sock
-
+type listenSocket = (INetSock.inet, Socket.passive Socket.stream) Socket.sock
+datatype ListenSocket = ListenSocket of listenSocket | GetListenSocket of unit -> listenSocket
 
 
 val sockToEvFD : ('a, 'b) Socket.sock -> int = fn sock => (SysWord.toInt o Posix.FileSys.fdToWord o Option.valOf o Posix.FileSys.iodToFD o Socket.ioDesc) sock
