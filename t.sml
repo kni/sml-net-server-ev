@@ -5,7 +5,7 @@ fun logger msg = print ((Date.fmt "%Y-%m-%d %H:%M:%S" (Date.fromTimeUniv(Time.no
 fun main () =
   let
 
-    fun handler (workerHookData, connectHookData) stream = (
+    fun handler ev (workerHookData, connectHookData) stream = (
       logger "Hello, stream.";
       case connectHookData of NONE => () | SOME data => print data;
       let

@@ -6,7 +6,7 @@ type ev
 type stream = (INetSock.inet, Socket.active Socket.stream) NetServerStream.netStream
 
 datatype ('c, 'd) settings = Settings of {
-  handler      : ('c option * 'd option) -> stream -> unit,
+  handler      : ev -> ('c option * 'd option) -> stream -> unit,
   port         : int,
   host         : string,
   acceptQueue  : int,
@@ -43,7 +43,7 @@ val close    = NetServerStream.close
 open NetServer
 
 datatype ('c, 'd) settings = Settings of {
-  handler      : ('c option * 'd option) -> stream -> unit,
+  handler      : ev -> ('c option * 'd option) -> stream -> unit,
   port         : int,
   host         : string,
   acceptQueue  : int,
@@ -118,7 +118,7 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
             val stream = NetServerStream.stream (ev, sock, closeCb)
             val _ = HashArrayInt.update (streamHash, evFD, stream)
           in
-            handler (workerHookData, connectHookData) stream handle exc => logger ("function handler raised an exception: " ^ exnMessage exc);
+            handler ev (workerHookData, connectHookData) stream handle exc => logger ("function handler raised an exception: " ^ exnMessage exc);
             ()
           end
 
