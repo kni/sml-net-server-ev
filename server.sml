@@ -128,7 +128,7 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
 
         fun loop () =
           let
-             val wait_cnt = evWait ev (SOME timeout)
+            val wait_cnt = evWait ev (SOME timeout)
           in
             if needStop () then () else loop ()
           end

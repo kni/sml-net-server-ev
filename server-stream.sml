@@ -3,6 +3,9 @@ struct
 
 open EvWithTimer
 
+val chunksize       = 64 * 1024 (* ToDo *)
+val maxWriteBufSize = 262144 * 10
+
 datatype stream_state = OpenState | ShutdownState | CloseState
 
 datatype ('af, 'sock_type) netStream = NetStream of {
@@ -36,8 +39,6 @@ fun stream (ev, sock, closeCb) = NetStream {
     state    = ref OpenState,
     closeCb  = closeCb
   }
-
-val chunksize = 64 * 1024 (* ToDo *)
 
 
 fun close (NetStream stream) = if !(#state stream) = CloseState then () else
@@ -92,9 +93,15 @@ fun write (NetStream stream, text) = if !(#state stream) = CloseState then 0 els
     val _ = (#wBuf stream)     := text :: !(#wBuf stream)
     val _ = (#wBufSize stream) := (String.size text) + !(#wBufSize stream)
   in
-    if !(#wWatched stream) then 0 else (
-      (#wWatched stream) := true;
-      evModify (#ev stream) [evAdd (#fd stream, evWrite, writeCb stream)]
+    if !(#wBufSize stream) <= maxWriteBufSize then (
+      if !(#wWatched stream) then 0 else (
+        (#wWatched stream) := true;
+        evModify (#ev stream) [evAdd (#fd stream, evWrite, writeCb stream)]
+      )
+    ) else (
+      print "Maximum write buffer size exceeded.\n";
+      close (NetStream stream);
+      0
     )
   end
 
