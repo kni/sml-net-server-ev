@@ -31,7 +31,7 @@ end
 =
 struct
 
-type ev = EvWithTimer.ev
+type ev = Ev.ev
 
 type stream = (INetSock.inet, Socket.active Socket.stream) NetServerStream.netStream
 
@@ -67,7 +67,7 @@ val sockToEvFD : ('a, 'b) Socket.sock -> int = fn sock => (SysWord.toInt o Posix
 fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger = logger, ...}) =
   let
 
-    open EvWithTimer
+    open Ev
 
     val addr = if host = "*" then INetSock.any port else
       case NetHostDB.fromString host of NONE => INetSock.any port | SOME h => INetSock.toAddr(h, port)

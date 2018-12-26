@@ -1,6 +1,6 @@
-use "../Ev/hash-array-int.sml";
-use "../Ev/ev-kqueue-poly.sml";
-use "../Ev/ev-with-timer.sml";
+use "ev/hash-array-int.sml";
+use "ev/ev-kqueue-poly.sml";
+use "ev/ev-with-timer.sml";
 use "os-constants.sml";
 use "server-poly.sml";
 use "server-stream.sml";

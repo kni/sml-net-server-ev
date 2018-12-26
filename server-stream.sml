@@ -1,10 +1,10 @@
 structure NetServerStream =
 struct
 
-open EvWithTimer
+open Ev
 
 val chunksize       = 64 * 1024 (* ToDo *)
-val maxWriteBufSize = 262144 * 10
+val maxWriteBufSize = 10 * 1024 * 1024
 
 datatype stream_state = OpenState | ShutdownState | CloseState
 
