@@ -15,3 +15,4 @@ ev:
 
 clean:
 	rm -rf t-poly t-mlton os-constants.sml
+	test -h ev || rm -rf ev
