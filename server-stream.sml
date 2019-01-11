@@ -66,7 +66,9 @@ fun writeCb stream _ =
     val bufSize = !(#wBufSize stream)
     val text    = String.concat (List.rev buf)
     val data    = Word8VectorSlice.full (Byte.stringToBytes text)
-    val n       = valOf (Socket.sendVecNB (#sock stream, data))
+    val n       = valOf (Socket.sendVecNB (#sock stream, data)) handle
+        OS.SysErr (_, SOME ECONNRESET) => 0
+      | exc => raise exc
   in
     if n = bufSize
     then (
@@ -112,7 +114,9 @@ local
 
 fun readCb stream _ =
   let
-    val data = valOf (Socket.recvVecNB (#sock stream, chunksize))
+    val data = valOf (Socket.recvVecNB (#sock stream, chunksize)) handle
+        OS.SysErr (_, SOME ECONNRESET) => Word8Vector.fromList []
+      | exc => raise exc
     val text = Byte.bytesToString data
     val text = (!(#rBuf stream)) ^ text
     val cb   = valOf (!(#rCb stream))
