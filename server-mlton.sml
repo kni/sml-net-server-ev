@@ -72,7 +72,7 @@ local
 
 in
   fun runWithN n f x =
-    if n > 1
+    if n > 0
     then (
       setHandlerForTermSignal true;
       print ("My PID is " ^ ( myPidAsString () ) ^ ".\n");

@@ -29,7 +29,7 @@ fun main () =
       port           = 5000,
       host           = "*",
       acceptQueue    = 128,
-      workers        = 3,
+      workers        = 3,    (* 0 - without workers *)
       maxRequests    = 1000, (* ToDo *)
       reuseport      = false,
       workerHook     = SOME ( (fn ev => logger "Worker init hook."),  (fn _  => logger "Worker cleanup hook.") ),
