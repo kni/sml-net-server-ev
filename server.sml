@@ -104,6 +104,8 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
 
         val streamHash = HashArrayInt.hash 1000
 
+        val socketCnt = ref 0
+
         fun acceptCb _ = case Socket.acceptNB listenSock of NONE => () (* Other worker was first *) | SOME (sock, _) =>
           let
             val evFD = sockToEvFD sock
@@ -113,11 +115,13 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
             fun closeCb () = (
               case connectHook of NONE => () | SOME (init, cleanup) => cleanup (valOf connectHookData);
               HashArrayInt.delete (streamHash, evFD);
+              socketCnt := !socketCnt - 1;
               Socket.close sock
             )
 
             val stream = NetServerStream.stream (ev, sock, closeCb)
             val _ = HashArrayInt.update (streamHash, evFD, stream)
+            val _ = socketCnt := !socketCnt + 1;
           in
             handler ev (workerHookData, connectHookData) stream handle exc => logger ("function handler raised an exception: " ^ exnMessage exc);
             ()
@@ -125,11 +129,24 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
 
         val _ =  evModify ev [evAdd (listenEvFD, evRead, acceptCb)]
 
+        val socketListened = ref true
+
         fun loop () =
           let
             val wait_cnt = evWait ev (SOME evTimeout)
           in
-            if needStop () then () else loop ()
+            if needStop () then () else
+            if needQuit ()
+            then (
+                if !socketListened then (
+                   evModify ev [evDelete (listenEvFD, evRead)];
+                   socketListened := false
+                ) else ();
+                if !socketCnt > 0
+                then loop ()
+                else ()
+            )
+            else loop ()
           end
       in
         loop ();

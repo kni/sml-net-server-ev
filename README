@@ -8,6 +8,7 @@ Features:
   * Worker hook for initialization and cleanup worker
   * Connect hook for initialization and cleanup after open socket
   * TERM signal to stop
+  * QUIT signal to stop gracefully
   * Reuseport support
 
 Replace kqueue on epoll in t.ml* files to run on Linux.
