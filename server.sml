@@ -132,8 +132,6 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
 
         val _ =  evModify ev [evAdd (listenEvFD, evRead, acceptCb)]
 
-        val socketListened = ref true
-
         fun loop () =
           let
             val wait_cnt = evWait ev (SOME evTimeout)
@@ -141,10 +139,6 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
             if needStop () then () else
             if needQuit () orelse (maxRequests > 0 andalso !requestCnt >= maxRequests)
             then (
-                if !socketListened then (
-                   evModify ev [evDelete (listenEvFD, evRead)];
-                   socketListened := false
-                ) else ();
                 if !socketCnt > 0
                 then loop ()
                 else ()
