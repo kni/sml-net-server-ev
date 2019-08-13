@@ -124,7 +124,9 @@ fun readCb stream _ =
           let
             val en = OS.errorName e
           in
-            if en = "ECONNRESET" orelse en = "connreset" then Word8Vector.fromList [] else raise exc
+            if en = "ECONNRESET" orelse en = "connreset" orelse en = "ETIMEDOUT" orelse en = "timedout"
+            then Word8Vector.fromList []
+            else raise exc
           end
       | exc => raise exc
     val text = Byte.bytesToString data
