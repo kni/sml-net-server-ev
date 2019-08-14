@@ -108,7 +108,17 @@ fun run'' (settings as {host = host, port = port, reuseport = reuseport, logger 
         val socketCnt = ref 0
         val requestCnt = ref 0
 
-        fun acceptCb _ = case Socket.acceptNB listenSock of NONE => () (* Other worker was first *) | SOME (sock, _) =>
+        fun accept listenSock = Socket.acceptNB listenSock handle
+            exc as OS.SysErr (s, SOME e) =>
+              let
+                val en = OS.errorName e
+              in
+                if en = "ECONNABORTED" orelse en = "connaborted" then NONE else raise exc
+              end
+          | exc => raise exc
+
+        fun acceptCb _ =
+          case accept listenSock of NONE => () (* Other worker was first *) | SOME (sock, _) =>
           let
             val evFD = sockToEvFD sock
             val connectHookData = case connectHook of NONE => NONE | SOME (init, cleanup) => SOME (init ev)
