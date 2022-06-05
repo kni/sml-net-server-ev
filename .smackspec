@@ -1,0 +1,4 @@
+description: asynchronous Standard ML server engine
+maintainer: Nick Kostyria <https://github.com/kni>
+keywords: SML,server,sockets,async
+requires: sml-ev v0 (v0.1.0)
