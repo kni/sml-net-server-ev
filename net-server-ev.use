@@ -1,3 +1,4 @@
+(* Please run "smackage make sml-net-server-ev os-constants.sml" before. *)
 lib ["${MLTON_LIB}/../../sml-ev/v0/ev.use",
      "os-constants.sml",
      "server-${SML_COMPILER}.sml",
